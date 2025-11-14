@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id         Int          @id @default(autoincrement())
+  roll       String       @unique // Student login ID
+  name       String
+  password   String // HASHED
+  semester   Int
+  branchId   Int
+  branch     Branch       @relation(fields: [branchId], references: [id])
+
+  attendance Attendance[]
+  ctMarks    CT[]         @relation("StudentCTMarks")
+
+  // Optional relation: which admin created this student
+  createdBy  Admin?       @relation("AdminCreatedStudents", fields: [createdById], references: [id])
+  createdById Int?
+}
+
+model Teacher {
+  id         Int      @id @default(autoincrement())
+  employeeId String   @unique // Teacher login ID
+  name       String
+  password   String // HASHED
+  branchId   Int
+  branch     Branch   @relation(fields: [branchId], references: [id])
+
+  subjects   Subject[]
+
+  // Optional relation: which admin created this teacher
+  createdBy  Admin?    @relation("AdminCreatedTeachers", fields: [createdById], references: [id])
+  createdById Int?
+}
+
+model Branch {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+
+  students Student[]
+  teachers Teacher[]
+  subjects Subject[]
+  cts      CT[]
+
+  // Optional relation: which admin created this branch
+  createdBy  Admin?    @relation("AdminCreatedBranches", fields: [createdById], references: [id])
+  createdById Int?
+}
+
+model Subject {
+  id         Int      @id @default(autoincrement())
+  name       String
+  semester   Int
+  branchId   Int
+  branch     Branch   @relation(fields: [branchId], references: [id])
+
+  teachers   Teacher[]
+  attendance Attendance[]
+  cts        CT[]         @relation("SubjectCTs")
+}
+
+model Attendance {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date
+  studentRoll String
+  student     Student  @relation(fields: [studentRoll], references: [roll])
+  subjectId   Int
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentRoll, subjectId, date])
+}
+
+model CT {
+  id         Int     @id @default(autoincrement())
+  ctNumber   Int
+  marks      Float
+  semester   Int
+  studentId  Int
+  student    Student @relation("StudentCTMarks", fields: [studentId], references: [id])
+  subjectId  Int
+  subject    Subject @relation("SubjectCTs", fields: [subjectId], references: [id])
+  branchId   Int
+  branch     Branch  @relation(fields: [branchId], references: [id])
+
+  @@unique([studentId, subjectId, ctNumber]) // Prevent duplicate marks for the same test
+}
+
+model Admin {
+  id         Int      @id @default(autoincrement())
+  employeeId String   @unique // Admin login ID
+  name       String
+  email      String   @unique
+  password   String   // HASHED
+  role       String   @default("admin")
+
+  // Optional: record tracking for analytics or audit
+  createdBranches  Branch[]   @relation("AdminCreatedBranches")
+  createdTeachers  Teacher[]  @relation("AdminCreatedTeachers")
+  createdStudents  Student[]  @relation("AdminCreatedStudents")
+}
+ 
