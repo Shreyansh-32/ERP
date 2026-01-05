@@ -3,33 +3,49 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
+
   if (!session || session.user.role !== "teacher") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { subjectId, date, presentRolls } = await req.json();
-  if (!subjectId || !date) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+
+  if (!subjectId || !date || !Array.isArray(presentRolls)) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
- // 1. Delete old attendance for that subject+date
-await prisma.attendance.deleteMany({
-  where: {
-    subjectId,
-    date: new Date(date)
-  },
-});
+  const attendanceDate = new Date(date);
+  attendanceDate.setHours(0, 0, 0, 0);
 
-// 2. Insert fresh attendance
-await prisma.attendance.createMany({
-  data: presentRolls.map((roll: string) => ({
-    studentRoll: roll,
-    subjectId,
-    date: new Date(date),
-  })),
-});
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // 🚫 FUTURE DATE PROTECTION
+  if (attendanceDate > today) {
+    return NextResponse.json(
+      { error: "Cannot mark attendance for future dates" },
+      { status: 400 }
+    );
+  }
+
+  // 🔁 Replace attendance for that date
+  await prisma.attendance.deleteMany({
+    where: {
+      subjectId,
+      date: attendanceDate,
+    },
+  });
+
+  await prisma.attendance.createMany({
+    data: presentRolls.map((roll: string) => ({
+      studentRoll: roll,
+      subjectId,
+      date: attendanceDate,
+    })),
+  });
 
   return NextResponse.json({ success: true });
 }

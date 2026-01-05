@@ -1,4 +1,3 @@
-// /lib/nextauth.config.ts
 import CredentialsProvider from "next-auth/providers/credentials";
 import { NextAuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";

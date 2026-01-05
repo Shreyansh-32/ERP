@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -16,7 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useRouter } from "next/navigation";
+
+/* ================= TYPES ================= */
 
 type Subject = {
   id: number;
@@ -33,300 +34,381 @@ type Student = {
   branchId: number;
 };
 
-export default function TeacherDashboard(){
-  const { data: session } = useSession();
+/* ================= COMPONENT ================= */
+
+export default function TeacherDashboard() {
   const router = useRouter();
+
+  /* ---------- Core State ---------- */
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
 
-  const [attendanceDate, setAttendanceDate] = useState<string>("");
+  /* ---------- Attendance ---------- */
+  const [attendanceDate, setAttendanceDate] = useState("");
   const [presentRolls, setPresentRolls] = useState<string[]>([]);
+  const [attendanceExists, setAttendanceExists] = useState(false);
 
-  const [ctMarks, setCtMarks] = useState<Record<number, number>>({});
+  /* ---------- CT Marks ---------- */
   const [ctNumber, setCtNumber] = useState<number>(1);
+  const [ctMarks, setCtMarks] = useState<Record<number, number>>({});
 
-  const [loadingSubjects, setLoadingSubjects] = useState<boolean>(true);
-  const [loadingStudents, setLoadingStudents] = useState<boolean>(false);
+  /* ---------- Loading ---------- */
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
-  /* ------------------------- FETCH SUBJECTS ------------------------- */
+  /* ========================================================= */
+  /*                    FETCH SUBJECTS                         */
+  /* ========================================================= */
   useEffect(() => {
-    let isMounted = true;
+    let alive = true;
 
     fetch("/api/teacher/subjects")
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to fetch subjects");
-        const data = (await res.json()) as Subject[];
-        if (isMounted) setSubjects(data);
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
       })
-      .catch(() => toast.error("Could not load subjects"))
+      .then((data: Subject[]) => {
+        if (alive) setSubjects(data);
+      })
+      .catch(() => toast.error("Failed to load subjects"))
       .finally(() => {
-        if (isMounted) setLoadingSubjects(false);
+        if (alive) setLoadingSubjects(false);
       });
 
     return () => {
-      isMounted = false;
+      alive = false;
     };
   }, []);
 
-  /* ------------------------- FETCH STUDENTS ------------------------- */
+  /* ========================================================= */
+  /*                    FETCH STUDENTS                         */
+  /* ========================================================= */
   useEffect(() => {
-    let isMounted = true;
-
-    // Reset students safely OUTSIDE effect first
-
     if (!selectedSubject) return;
 
     const subject = subjects.find((s) => s.id === selectedSubject);
     if (!subject) return;
 
+    let alive = true;
+
     fetch(
       `/api/teacher/students?branchId=${subject.branchId}&semester=${subject.semester}`
     )
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to fetch students");
-        const data = (await res.json()) as Student[];
-        if (isMounted) setStudents(data);
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
       })
-      .catch(() => toast.error("Could not load students"))
+      .then((data: Student[]) => {
+        if (alive) setStudents(data);
+      })
+      .catch(() => toast.error("Failed to load students"))
       .finally(() => {
-        if (isMounted) setLoadingStudents(false);
+        if (alive) setLoadingStudents(false);
       });
 
     return () => {
-      isMounted = false;
+      alive = false;
     };
   }, [selectedSubject, subjects]);
 
-  /* ------------------------- Toggle Roll Checkbox ------------------------- */
-  const handleCheckboxChange = (checked: boolean | string, roll: string) => {
-    if (checked === true) {
-      setPresentRolls((prev) => [...prev, roll]);
-    } else {
-      setPresentRolls((prev) => prev.filter((r) => r !== roll));
-    }
+  /* ========================================================= */
+  /*           PREFILL ATTENDANCE (EDIT MODE)                  */
+  /* ========================================================= */
+  useEffect(() => {
+    if (!selectedSubject || !attendanceDate) return;
+
+    fetch(
+      `/api/teacher/attendance/check?subjectId=${selectedSubject}&date=${attendanceDate}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        setAttendanceExists(Boolean(data.exists));
+        setPresentRolls(data.presentRolls ?? []);
+      })
+      .catch(() => {
+        setAttendanceExists(false);
+        setPresentRolls([]);
+      });
+  }, [selectedSubject, attendanceDate]);
+
+  /* ========================================================= */
+  /*              PREFILL CT MARKS (EDIT MODE)                 */
+  /* ========================================================= */
+  useEffect(() => {
+    if (!selectedSubject || !ctNumber) return;
+
+    fetch(
+      `/api/teacher/ct/get?subjectId=${selectedSubject}&ctNumber=${ctNumber}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        const filled: Record<number, number> = {};
+        for (const m of data.marks ?? []) {
+          filled[m.studentId] = m.marks;
+        }
+        setCtMarks(filled);
+      })
+      .catch(() => setCtMarks({}));
+  }, [selectedSubject, ctNumber]);
+
+  /* ========================================================= */
+  /*                   ATTENDANCE HANDLERS                     */
+  /* ========================================================= */
+  const toggleRoll = (roll: string, checked: boolean) => {
+    setPresentRolls((prev) =>
+      checked ? [...prev, roll] : prev.filter((r) => r !== roll)
+    );
   };
 
-  /* ------------------------- Submit Attendance ------------------------- */
   const submitAttendance = async () => {
     if (!selectedSubject || !attendanceDate) {
       toast.error("Select subject and date");
       return;
     }
 
-    try {
-      const res = await fetch("/api/teacher/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subjectId: selectedSubject,
-          date: attendanceDate,
-          presentRolls,
-        }),
-      });
+    const res = await fetch("/api/teacher/attendance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectId: selectedSubject,
+        date: attendanceDate,
+        presentRolls,
+      }),
+    });
 
-      if (!res.ok) return toast.error("Failed to save attendance");
-
-      toast.success("Attendance saved!");
-
-      // Fully reset UI
-      setPresentRolls([]);
-      setAttendanceDate("");
-      setStudents([]);
-      setSelectedSubject(null);
-      router.refresh();
-    } catch {
-      toast.error("Error marking attendance");
-    }
-  };
-
-  /* ------------------------- Submit CT Marks ------------------------- */
-  const submitCT = async () => {
-    if (!selectedSubject) {
-      toast.error("Select a subject");
+    if (!res.ok) {
+      toast.error("Failed to save attendance");
       return;
     }
 
-    const marksArray = students.map((s) => ({
+    toast.success("Attendance saved");
+
+    // Reset UI
+    setSelectedSubject(null);
+    setAttendanceDate("");
+    setPresentRolls([]);
+    setStudents([]);
+    setAttendanceExists(false);
+
+    router.refresh();
+  };
+
+  /* ========================================================= */
+  /*                     CT HANDLERS                           */
+  /* ========================================================= */
+  const submitCT = async () => {
+    if (!selectedSubject) {
+      toast.error("Select subject");
+      return;
+    }
+
+    const payload = students.map((s) => ({
       studentId: s.id,
-      marks: Number(ctMarks[s.id] || 0),
+      marks: Number(ctMarks[s.id] ?? 0),
       semester: s.semester,
       branchId: s.branchId,
     }));
 
-    try {
-      const res = await fetch("/api/teacher/ct", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subjectId: selectedSubject,
-          ctNumber,
-          marks: marksArray,
-        }),
-      });
+    const res = await fetch("/api/teacher/ct", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subjectId: selectedSubject,
+        ctNumber,
+        marks: payload,
+      }),
+    });
 
-      if (!res.ok) return toast.error("Failed to save CT marks");
-
-      toast.success("CT marks saved!");
-      setCtMarks({});
-    } catch {
-      toast.error("Error saving CT marks");
+    if (!res.ok) {
+      toast.error("Failed to save CT marks");
+      return;
     }
+
+    toast.success("CT marks saved");
   };
 
-  /* ------------------------- Render UI ------------------------- */
+  /* ========================================================= */
+  /*                     CSV EXPORT                            */
+  /* ========================================================= */
+  const exportAttendanceCSV = () => {
+    if (!selectedSubject || !attendanceDate) {
+      toast.error("Select subject and date");
+      return;
+    }
+
+    window.open(
+      `/api/teacher/attendance/export?subjectId=${selectedSubject}&date=${attendanceDate}`,
+      "_blank"
+    );
+  };
+
+  const exportCTCSV = () => {
+    if (!selectedSubject) {
+      toast.error("Select subject");
+      return;
+    }
+
+    window.open(
+      `/api/teacher/ct/export?subjectId=${selectedSubject}&ctNumber=${ctNumber}`,
+      "_blank"
+    );
+  };
+
+  /* ========================================================= */
+  /*                           UI                              */
+  /* ========================================================= */
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
       <h1 className="text-3xl font-semibold">Teacher Dashboard</h1>
 
-      <Tabs defaultValue="attendance" className="space-y-6">
+      <Tabs defaultValue="attendance">
         <TabsList>
-          <TabsTrigger value="attendance">Mark Attendance</TabsTrigger>
-          <TabsTrigger value="ct">Assign CT Marks</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="ct" disabled={!selectedSubject}>
+            CT Marks
+          </TabsTrigger>
         </TabsList>
 
-        {/* ---------------- ATTENDANCE TAB ---------------- */}
+        {/* ================= ATTENDANCE ================= */}
         <TabsContent value="attendance">
           <Card>
             <CardHeader>
               <CardTitle>Mark Attendance</CardTitle>
             </CardHeader>
-
             <CardContent className="space-y-6">
-              {/* Select Subject */}
-              <div>
-                <label className="text-sm font-medium">Subject</label>
-                <Select
-                  onValueChange={(v) => setSelectedSubject(Number(v))}
-                  value={selectedSubject?.toString()}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        loadingSubjects ? "Loading..." : "Select a subject"
+              <Select
+                value={selectedSubject?.toString()}
+                onValueChange={(v) => {
+                  setSelectedSubject(Number(v));
+                  setStudents([]);
+                  setPresentRolls([]);
+                  setAttendanceExists(false);
+                  setLoadingStudents(true);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      loadingSubjects
+                        ? "Loading subjects..."
+                        : "Select subject"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((s) => (
+                    <SelectItem key={s.id} value={s.id.toString()}>
+                      {s.name} (Sem {s.semester})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Input
+                type="date"
+                max={new Date().toISOString().split("T")[0]}
+                value={attendanceDate}
+                onChange={(e) => setAttendanceDate(e.target.value)}
+              />
+
+              {attendanceExists && (
+                <div className="rounded-md border border-yellow-400 bg-background px-4 py-2 text-sm">
+                  Attendance already exists (editing mode)
+                </div>
+              )}
+
+              {loadingStudents ? (
+                <p>Loading students…</p>
+              ) : (
+                students.map((s) => (
+                  <div key={s.id} className="flex items-center gap-3">
+                    <Checkbox
+                      checked={presentRolls.includes(s.roll)}
+                      onCheckedChange={(checked) =>
+                        toggleRoll(s.roll, Boolean(checked))
                       }
                     />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((s) => (
-                      <SelectItem key={s.id} value={s.id.toString()}>
-                        {s.name} (Sem {s.semester})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="text-sm font-medium">Date</label>
-                <Input
-                  type="date"
-                  value={attendanceDate}
-                  onChange={(e) => setAttendanceDate(e.target.value)}
-                />
-              </div>
-
-              {/* Students List */}
-              {loadingStudents ? (
-                <div>Loading students...</div>
-              ) : students.length > 0 ? (
-                <div className="space-y-4">
-                  {students.map((s) => (
-                    <div key={s.id} className="flex items-center gap-3">
-                      <Checkbox
-                        checked={presentRolls.includes(s.roll)}
-                        onCheckedChange={(checked) =>
-                          handleCheckboxChange(checked, s.roll)
-                        }
-                      />
-                      <span>
-                        {s.roll} — {s.name}
-                      </span>
-                    </div>
-                  ))}
-
-                  <Button onClick={submitAttendance}>Save Attendance</Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No students found.
-                </p>
+                    <span>
+                      {s.roll} — {s.name}
+                    </span>
+                  </div>
+                ))
               )}
+
+              <div className="flex gap-3">
+                <Button onClick={submitAttendance} disabled={!students.length}>
+                  Save Attendance
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={exportAttendanceCSV}
+                  disabled={!attendanceExists}
+                >
+                  Export CSV
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ---------------- CT MARKS TAB ---------------- */}
+        {/* ================= CT MARKS ================= */}
         <TabsContent value="ct">
           <Card>
             <CardHeader>
               <CardTitle>Assign CT Marks</CardTitle>
             </CardHeader>
-
             <CardContent className="space-y-6">
-              {/* Subject */}
-              <div>
-                <label className="text-sm font-medium">Subject</label>
-                <Select
-                  onValueChange={(v) => setSelectedSubject(Number(v))}
-                  value={selectedSubject?.toString()}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((s) => (
-                      <SelectItem key={s.id} value={s.id.toString()}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select
+                value={ctNumber.toString()}
+                onValueChange={(v) => setCtNumber(Number(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select CT" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">CT 1</SelectItem>
+                  <SelectItem value="2">CT 2</SelectItem>
+                </SelectContent>
+              </Select>
 
-              {/* CT Number */}
-              <div>
-                <label className="text-sm font-medium">CT Number</label>
-                <Select
-                  onValueChange={(v) => setCtNumber(Number(v))}
-                  value={ctNumber.toString()}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select CT" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">CT 1</SelectItem>
-                    <SelectItem value="2">CT 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Students Enter Marks */}
-              {students.length > 0 && (
-                <div className="space-y-4">
-                  {students.map((s) => (
-                    <div key={s.id} className="flex items-center gap-3">
-                      <div className="w-36">
-                        {s.roll} — {s.name}
-                      </div>
-                      <Input
-                        type="number"
-                        value={ctMarks[s.id] ?? ""}
-                        className="w-24"
-                        onChange={(e) =>
-                          setCtMarks((prev) => ({
-                            ...prev,
-                            [s.id]: Number(e.target.value),
-                          }))
-                        }
-                      />
-                    </div>
-                  ))}
-
-                  <Button onClick={submitCT}>Save CT Marks</Button>
+              {Object.keys(ctMarks).length > 0 && (
+                <div className="rounded-md border border-blue-400 bg-background px-4 py-2 text-sm">
+                  Existing CT marks loaded (editing mode)
                 </div>
               )}
+
+              {students.map((s) => (
+                <div key={s.id} className="flex items-center gap-3">
+                  <div className="w-40">
+                    {s.roll} — {s.name}
+                  </div>
+                  <Input
+                    type="number"
+                    className="w-24"
+                    value={ctMarks[s.id] ?? ""}
+                    onChange={(e) =>
+                      setCtMarks((prev) => ({
+                        ...prev,
+                        [s.id]: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+              ))}
+
+              <div className="flex gap-3">
+                <Button onClick={submitCT} disabled={!students.length}>
+                  Save CT Marks
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={exportCTCSV}
+                  disabled={!students.length}
+                >
+                  Export CSV
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
