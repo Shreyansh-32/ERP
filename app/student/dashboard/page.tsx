@@ -22,6 +22,29 @@ type StudentCT = {
   marks: number;
 };
 
+type AssignmentStat = {
+  subjectId: number;
+  subjectName: string;
+  assignment1: boolean;
+  assignment2: boolean;
+};
+
+type QuizStat = {
+  subjectId: number;
+  subjectName: string;
+  quiz1Marks: number | null;
+  quiz2Marks: number | null;
+  quiz1Present: boolean;
+  quiz2Present: boolean;
+};
+
+type AttendanceTimelineEntry = {
+  subjectId: number;
+  subjectName: string;
+  date: string; // yyyy-mm-dd
+  present: boolean;
+};
+
 /* ================= HELPERS ================= */
 
 const percent = (num: number, den: number) =>
@@ -149,11 +172,6 @@ export default async function StudentDashboardPage() {
 
   /* ================= CHART DATA ================= */
 
-  const attendanceChartData = attendanceStats.map((s) => ({
-    subject: s.subjectName,
-    percentage: s.percentage,
-  }));
-
   const ctChartMap = new Map<
     string,
     { subject: string; CT1: number; CT2: number }
@@ -174,6 +192,111 @@ export default async function StudentDashboardPage() {
 
   const ctChartData = Array.from(ctChartMap.values());
 
+  /* ================= ASSIGNMENTS ================= */
+
+  const assignments = await prisma.assignmentSubmission.findMany({
+    where: { studentId: student.id },
+    include: { subject: true },
+  });
+
+  const assignmentMap = new Map<number, AssignmentStat>();
+
+  for (const s of subjectsForTerm) {
+    assignmentMap.set(s.id, {
+      subjectId: s.id,
+      subjectName: s.name,
+      assignment1: false,
+      assignment2: false,
+    });
+  }
+
+  for (const a of assignments) {
+    const stat = assignmentMap.get(a.subjectId);
+    if (!stat) continue;
+    if (a.assignmentNumber === 1) stat.assignment1 = a.submitted;
+    if (a.assignmentNumber === 2) stat.assignment2 = a.submitted;
+  }
+
+  const assignmentStats = Array.from(assignmentMap.values()).sort((a, b) =>
+    a.subjectName.localeCompare(b.subjectName)
+  );
+
+  /* ================= QUIZ ================= */
+
+  const quizRecords = await prisma.quiz.findMany({
+    where: { studentId: student.id },
+    include: { subject: true },
+  });
+
+  const quizMap = new Map<number, QuizStat>();
+
+  for (const s of subjectsForTerm) {
+    quizMap.set(s.id, {
+      subjectId: s.id,
+      subjectName: s.name,
+      quiz1Marks: null,
+      quiz2Marks: null,
+      quiz1Present: false,
+      quiz2Present: false,
+    });
+  }
+
+  for (const q of quizRecords) {
+    const stat = quizMap.get(q.subjectId);
+    if (!stat) continue;
+    if (q.quizNumber === 1) {
+      stat.quiz1Marks = q.marks ?? null;
+      stat.quiz1Present = q.present;
+    }
+    if (q.quizNumber === 2) {
+      stat.quiz2Marks = q.marks ?? null;
+      stat.quiz2Present = q.present;
+    }
+  }
+
+  const quizStats = Array.from(quizMap.values()).sort((a, b) =>
+    a.subjectName.localeCompare(b.subjectName)
+  );
+
+  /* ================= ATTENDANCE TIMELINE ================= */
+
+  const subjectIdList = subjectsForTerm.map((s) => s.id);
+
+  const classDates = await prisma.attendance.findMany({
+    where: { subjectId: { in: subjectIdList } },
+    distinct: ["subjectId", "date"],
+    select: { subjectId: true, date: true },
+  });
+
+  const classDateMap = new Map<number, Set<string>>();
+  for (const cd of classDates) {
+    const d = cd.date.toISOString().split("T")[0];
+    if (!classDateMap.has(cd.subjectId)) classDateMap.set(cd.subjectId, new Set());
+    classDateMap.get(cd.subjectId)!.add(d);
+  }
+
+  const presentDateMap = new Map<number, Set<string>>();
+  for (const att of student.attendance) {
+    const d = att.date.toISOString().split("T")[0];
+    if (!presentDateMap.has(att.subjectId)) presentDateMap.set(att.subjectId, new Set());
+    presentDateMap.get(att.subjectId)!.add(d);
+  }
+
+  const subjectNameMap = new Map<number, string>(subjectsForTerm.map((s) => [s.id, s.name]));
+
+  const attendanceTimeline: AttendanceTimelineEntry[] = [];
+  for (const [sid, dates] of classDateMap) {
+    const presentDates = presentDateMap.get(sid) ?? new Set<string>();
+    for (const d of dates) {
+      attendanceTimeline.push({
+        subjectId: sid,
+        subjectName: subjectNameMap.get(sid) ?? "Unknown",
+        date: d,
+        present: presentDates.has(d),
+      });
+    }
+  }
+
   return (
     <StudentDashboardClient
       student={{
@@ -184,10 +307,12 @@ export default async function StudentDashboardPage() {
       }}
       attendanceStats={attendanceStats}
       ctList={ctList}
-      attendanceChartData={attendanceChartData}
       ctChartData={ctChartData}
       overallAttendance={overallAttendance}
       overallCTAverage={overallCTAverage}
+      assignmentStats={assignmentStats}
+      quizStats={quizStats}
+      attendanceTimeline={attendanceTimeline}
     />
   );
 }
