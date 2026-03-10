@@ -15,7 +15,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
-import { Home, User, LogOut } from "lucide-react";
+import { Sparkles, User, LogOut } from "lucide-react";
 
 export function Navbar() {
   const { data: session } = useSession();
@@ -31,17 +31,17 @@ export function Navbar() {
       : "/";
 
   return (
-    <nav className="w-full border-b border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md sticky top-0 z-50">
+    <nav className="w-full border-b border-slate-200/70 dark:border-slate-800/70 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between">
         
         {/* Left Side: Logo / Home */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/")}
-            className="flex items-center gap-2 text-xl font-semibold text-slate-800 dark:text-slate-100"
+            className="flex items-center gap-2 text-xl font-semibold text-slate-800 dark:text-slate-100 tracking-tight"
           >
-            <Home className="h-5 w-5" />
-            ERP Portal
+            <Sparkles className="h-5 w-5 text-indigo-600" />
+            CampussHub
           </button>
         </div>
 
