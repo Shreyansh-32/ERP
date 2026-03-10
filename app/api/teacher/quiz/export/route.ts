@@ -13,9 +13,9 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const subjectId = Number(searchParams.get("subjectId"));
-  const ctNumber = Number(searchParams.get("ctNumber"));
+  const quizNumber = Number(searchParams.get("quizNumber"));
 
-  if (!subjectId || !ctNumber) {
+  if (!subjectId || !quizNumber) {
     return NextResponse.json({ error: "Missing params" }, { status: 400 });
   }
 
@@ -36,28 +36,29 @@ export async function GET(req: Request) {
     orderBy: { roll: "asc" },
   });
 
-  const records = await prisma.cT.findMany({
-    where: { subjectId, ctNumber },
-    include: { student: true },
-    orderBy: { studentId: "asc" },
+  const records = await prisma.quiz.findMany({
+    where: { subjectId, quizNumber },
+    select: { studentId: true, marks: true, present: true },
   });
 
-  const marksMap = new Map<number, number>();
+  const quizMap = new Map<number, { marks: number | null; present: boolean }>();
   for (const r of records) {
-    marksMap.set(r.studentId, r.marks);
+    quizMap.set(r.studentId, { marks: r.marks ?? null, present: r.present });
   }
 
-  let csv = "Roll,Name,CT Marks\n";
+  let csv = "Roll,Name,Marks,Present\n";
 
   for (const student of students) {
-    const mark = marksMap.get(student.id);
-    csv += `${student.roll},${student.name},${mark === undefined ? "" : mark}\n`;
+    const rec = quizMap.get(student.id);
+    const marks = rec?.marks ?? "";
+    const present = rec?.present ? "Yes" : "";
+    csv += `${student.roll},${student.name},${marks},${present}\n`;
   }
 
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv",
-      "Content-Disposition": `attachment; filename=ct_${ctNumber}.csv`,
+      "Content-Disposition": `attachment; filename=quiz_${quizNumber}.csv`,
     },
   });
 }

@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -10,17 +12,17 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const branchId = Number(searchParams.get("branchId"));
-  const semester = Number(searchParams.get("semester"));
+  const subjectId = Number(searchParams.get("subjectId"));
+  const quizNumber = Number(searchParams.get("quizNumber"));
 
-  if (!branchId || !semester) {
-    return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  if (!subjectId || !quizNumber) {
+    return NextResponse.json({ records: [] });
   }
 
-  const students = await prisma.student.findMany({
-    where: { branchId, semester },
-    orderBy: { roll: "asc" }
+  const records = await prisma.quiz.findMany({
+    where: { subjectId, quizNumber },
+    select: { studentId: true, marks: true, present: true },
   });
 
-  return NextResponse.json(students);
+  return NextResponse.json({ records });
 }

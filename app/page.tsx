@@ -32,7 +32,7 @@ export default function LandingPage() {
           <Button
             variant="outline"
             size="lg"
-            onClick={() => router.push("/alumni")}
+            onClick={() => router.push("http://localhost:3001")}
             className="px-8 text-base border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             Join Alumni Platform

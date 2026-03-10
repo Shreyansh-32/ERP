@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/adminGuard";
+
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
+import { requireAdmin } from "@/lib/adminGuard";
 
 export async function POST(req: Request) {
   try {

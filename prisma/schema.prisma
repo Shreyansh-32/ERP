@@ -18,6 +18,8 @@ model Student {
 
   attendance Attendance[]
   ctMarks    CT[]         @relation("StudentCTMarks")
+  assignments AssignmentSubmission[]
+  quizzes     Quiz[]
 
   // Optional relation: which admin created this student
   createdBy  Admin?       @relation("AdminCreatedStudents", fields: [createdById], references: [id])
@@ -47,6 +49,8 @@ model Branch {
   teachers Teacher[]
   subjects Subject[]
   cts      CT[]
+  assignments AssignmentSubmission[]
+  quizzes     Quiz[]
 
   // Optional relation: which admin created this branch
   createdBy  Admin?    @relation("AdminCreatedBranches", fields: [createdById], references: [id])
@@ -63,6 +67,8 @@ model Subject {
   teachers   Teacher[]
   attendance Attendance[]
   cts        CT[]         @relation("SubjectCTs")
+  assignments AssignmentSubmission[]
+  quizzes     Quiz[]
 }
 
 model Attendance {
@@ -89,6 +95,37 @@ model CT {
   branch     Branch  @relation(fields: [branchId], references: [id])
 
   @@unique([studentId, subjectId, ctNumber]) // Prevent duplicate marks for the same test
+}
+
+model AssignmentSubmission {
+  id               Int      @id @default(autoincrement())
+  assignmentNumber Int
+  submitted        Boolean  @default(false)
+  semester         Int
+  studentId        Int
+  student          Student  @relation(fields: [studentId], references: [id])
+  subjectId        Int
+  subject          Subject  @relation(fields: [subjectId], references: [id])
+  branchId         Int
+  branch           Branch   @relation(fields: [branchId], references: [id])
+
+  @@unique([studentId, subjectId, assignmentNumber])
+}
+
+model Quiz {
+  id         Int      @id @default(autoincrement())
+  quizNumber Int
+  marks      Float?
+  present    Boolean  @default(false)
+  semester   Int
+  studentId  Int
+  student    Student  @relation(fields: [studentId], references: [id])
+  subjectId  Int
+  subject    Subject  @relation(fields: [subjectId], references: [id])
+  branchId   Int
+  branch     Branch   @relation(fields: [branchId], references: [id])
+
+  @@unique([studentId, subjectId, quizNumber])
 }
 
 model Admin {

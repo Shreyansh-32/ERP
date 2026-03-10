@@ -19,15 +19,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Subject ID required" }, { status: 400 });
   }
 
+  const subject = await prisma.subject.findUnique({
+    where: { id: subjectId },
+    select: { branchId: true, semester: true },
+  });
+
+  if (!subject) {
+    return NextResponse.json({ error: "Subject not found" }, { status: 404 });
+  }
+
   /* ---------------------------------------------------- */
   /*                     FETCH DATA                       */
   /* ---------------------------------------------------- */
 
   const students = await prisma.student.findMany({
     where: {
-      attendance: {
-        some: { subjectId },
-      },
+      branchId: subject.branchId,
+      semester: subject.semester,
     },
     orderBy: { roll: "asc" },
   });
@@ -42,11 +50,7 @@ export async function GET(req: Request) {
   /* ---------------------------------------------------- */
 
   const dates = Array.from(
-    new Set(
-      attendanceRecords.map((a) =>
-        a.date.toISOString().split("T")[0]
-      )
-    )
+    new Set(attendanceRecords.map((a) => a.date.toISOString().split("T")[0]))
   ).sort();
 
   /* ---------------------------------------------------- */
@@ -69,21 +73,18 @@ export async function GET(req: Request) {
   /*                     BUILD CSV                        */
   /* ---------------------------------------------------- */
 
-  let csv =
-    "Roll,Name," +
-    dates.join(",") +
-    ",Total Classes,Attendance %\n";
+  const baseHeader = "Roll,Name";
+  const dateHeader = dates.length ? `,${dates.join(",")}` : "";
+  let csv = `${baseHeader}${dateHeader},Total Classes,Attendance %\n`;
 
   for (const student of students) {
     let presentCount = 0;
 
     const row = dates.map((date) => {
-      const present = presentMap
-        .get(student.roll)
-        ?.has(date);
+      const present = presentMap.get(student.roll)?.has(date);
 
       if (present) presentCount++;
-      return present ? "1" : "0";
+      return present ? "1" : ""; // leave blank when absent/missing
     });
 
     const totalClasses = dates.length;
