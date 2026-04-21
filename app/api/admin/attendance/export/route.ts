@@ -67,11 +67,7 @@ export async function GET(req: Request) {
     /*    BUILD SUBJECT-WISE ATTENDANCE DATA           */
     /* ================================================ */
 
-    // Map: subjectId -> subjectName
-    const subjectNameMap = new Map<number, string>();
-    subjects.forEach((s) => subjectNameMap.set(s.id, s.name));
-
-    // Map: (subjectId, studentRoll) -> Set<date> (for tracking attended dates per subject)
+    // Map: subjectId -> (studentRoll -> Set<date>)
     const subjectStudentAttendance = new Map<
       string,
       Map<string, Set<string>>
@@ -113,40 +109,51 @@ export async function GET(req: Request) {
     }
 
     /* ================================================ */
-    /*           BUILD CSV CONTENT                     */
+    /*           BUILD CSV HEADER                      */
     /* ================================================ */
 
-    let csv = "Overall Attendance Summary Report\n";
-    csv += `Branch: Semester ${semester}\n`;
-    csv += `Date Generated: ${new Date().toISOString().split("T")[0]}\n`;
-    csv += `Total Subjects: ${subjects.length}\n\n`;
+    let csv = "";
 
-    // Subject-wise class count summary
-    csv += "Subject-wise Class Count:\n";
+    // Calculate total classes conducted
+    let totalClassesAccross = 0;
+    for (const subject of subjects) {
+      totalClassesAccross += subjectClassCountMap.get(subject.id) || 0;
+    }
+
+    // Title rows
+    csv += `Department of Computer Science Engineering\n`;
+    csv += `${semester} Sem Record up to ${new Date().toISOString().split("T")[0]}\n\n`;
+
+    // Build header row with subject names
+    let headerRow = "S.No.,Roll Number,Name";
+
+    for (const subject of subjects) {
+      headerRow += `,${subject.name}`;
+    }
+
+    headerRow += ",Overall Attd,Overall %";
+    csv += headerRow + "\n";
+
+    // Build total classes conducted row
+    let totalClassesRow = `,,Total Classes Conducted`;
     for (const subject of subjects) {
       const classCount = subjectClassCountMap.get(subject.id) || 0;
-      csv += `${subject.name},${classCount}\n`;
+      totalClassesRow += `,${classCount}`;
     }
+    totalClassesRow += `,${totalClassesAccross},`;
+    csv += totalClassesRow + "\n";
 
-    csv +=
-      "\n==================== OVERALL ATTENDANCE ====================\n";
-    csv += "Roll,Name";
+    /* ================================================ */
+    /*           BUILD STUDENT RECORDS                 */
+    /* ================================================ */
 
-    // Add columns for each subject (showing attended/total)
-    for (const subject of subjects) {
-      csv += `,${subject.name}`;
-    }
+    let sNo = 1;
 
-    csv += ",Total Attended,Total Classes,Overall Attendance %\n";
-
-    // Add student records
     for (const student of students) {
       let grandTotalAttended = 0;
       let grandTotalClasses = 0;
 
-      csv += `${student.roll},${student.name}`;
-
-      const attendanceDetails: string[] = [];
+      let row = `${sNo},${student.roll},${student.name}`;
 
       for (const subject of subjects) {
         const subjectKey = subject.id.toString();
@@ -157,27 +164,25 @@ export async function GET(req: Request) {
         grandTotalAttended += attended;
         grandTotalClasses += totalClasses;
 
-        attendanceDetails.push(`${attended}/${totalClasses}`);
+        row += `,${attended}`;
       }
 
-      // Add subject-wise attendance
-      for (const detail of attendanceDetails) {
-        csv += `,${detail}`;
-      }
-
-      // Add totals and overall percentage
+      // Add overall attended and percentage
       const overallPercentage =
         grandTotalClasses === 0
-          ? "0"
-          : ((grandTotalAttended / grandTotalClasses) * 100).toFixed(2);
+          ? "0.00%"
+          : `${((grandTotalAttended / grandTotalClasses) * 100).toFixed(2)}%`;
 
-      csv += `,${grandTotalAttended},${grandTotalClasses},${overallPercentage}\n`;
+      row += `,${grandTotalAttended},${overallPercentage}`;
+      csv += row + "\n";
+
+      sNo++;
     }
 
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename=attendance_export_branch_${branchId}_sem_${semester}.csv`,
+        "Content-Disposition": `attachment; filename=attendance_report_sem_${semester}_${new Date().toISOString().split("T")[0]}.csv`,
       },
     });
   } catch (error) {

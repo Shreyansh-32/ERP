@@ -112,6 +112,21 @@ export default function AdminDashboard() {
 
   const [branchTeachers, setBranchTeachers] = useState<Teacher[]>([]);
 
+  /* ---------- Manage Section Filters ---------- */
+  const [manageTeacherFilter, setManageTeacherFilter] = useState({
+    branchId: "",
+  });
+
+  const [manageStudentFilter, setManageStudentFilter] = useState({
+    branchId: "",
+    semester: "",
+  });
+
+  const [manageSubjectFilter, setManageSubjectFilter] = useState({
+    branchId: "",
+    semester: "",
+  });
+
   /* ---------- Export Attendance ---------- */
   const [exportAttendance, setExportAttendance] = useState({
     branchId: "",
@@ -145,6 +160,36 @@ export default function AdminDashboard() {
       .catch(() => toast.error("Failed to load branches"))
       .finally(() => setLoadingBranches(false));
   }, []);
+
+  /* ================= AUTO-LOAD TEACHERS WHEN BRANCH CHANGES ================= */
+
+  useEffect(() => {
+    if (manageTeacherFilter.branchId) {
+      fetchTeachers(manageTeacherFilter.branchId);
+    } else {
+      setTeachers([]);
+    }
+  }, [manageTeacherFilter.branchId]);
+
+  /* ================= AUTO-LOAD STUDENTS WHEN BRANCH/SEMESTER CHANGES ================= */
+
+  useEffect(() => {
+    if (manageStudentFilter.branchId && manageStudentFilter.semester) {
+      fetchStudents(manageStudentFilter.branchId, manageStudentFilter.semester);
+    } else {
+      setStudents([]);
+    }
+  }, [manageStudentFilter.branchId, manageStudentFilter.semester]);
+
+  /* ================= AUTO-LOAD SUBJECTS WHEN BRANCH/SEMESTER CHANGES ================= */
+
+  useEffect(() => {
+    if (manageSubjectFilter.branchId && manageSubjectFilter.semester) {
+      fetchSubjects(manageSubjectFilter.branchId, manageSubjectFilter.semester);
+    } else {
+      setSubjects([]);
+    }
+  }, [manageSubjectFilter.branchId, manageSubjectFilter.semester]);
 
   /* ================= HELPERS ================= */
 
@@ -779,7 +824,7 @@ export default function AdminDashboard() {
                               () => {
                                 setEditingTeacher(null);
                                 setEditTeacherForm({ name: "", password: "", branchId: "" });
-                                fetchTeachers();
+                                fetchTeachers(manageTeacherFilter.branchId);
                               }
                             );
                           }}
@@ -796,10 +841,23 @@ export default function AdminDashboard() {
                   </>
                 ) : (
                   <>
-                    <div className="flex gap-2 mb-4">
-                      <Button variant="outline" onClick={() => fetchTeachers()}>
-                        Refresh Teachers
-                      </Button>
+                    <div className="flex flex-col gap-4 mb-4">
+                      <Select
+                        value={manageTeacherFilter.branchId}
+                        onValueChange={(v) => setManageTeacherFilter({ branchId: v })}
+                        disabled={loadingBranches}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={loadingBranches ? "Loading branches..." : "Select Branch to Filter"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches.map((b) => (
+                            <SelectItem key={b.id} value={b.id.toString()}>
+                              {b.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {loadingTeachers ? (
@@ -838,7 +896,7 @@ export default function AdminDashboard() {
                                 variant="ghost"
                                 onClick={() =>
                                   runDelete("deleteTeacher", `/api/admin/teacher/${t.id}`, () =>
-                                    fetchTeachers()
+                                    fetchTeachers(manageTeacherFilter.branchId)
                                   )
                                 }
                                 disabled={submitting.deleteTeacher || submitting.editTeacher}
@@ -949,7 +1007,7 @@ export default function AdminDashboard() {
                               () => {
                                 setEditingStudent(null);
                                 setEditStudentForm({ name: "", password: "", semester: "", branchId: "" });
-                                fetchStudents();
+                                fetchStudents(manageStudentFilter.branchId, manageStudentFilter.semester);
                               }
                             );
                           }}
@@ -966,10 +1024,40 @@ export default function AdminDashboard() {
                   </>
                 ) : (
                   <>
-                    <div className="flex gap-2 mb-4">
-                      <Button variant="outline" onClick={() => fetchStudents()}>
-                        Refresh Students
-                      </Button>
+                    <div className="flex flex-col gap-4 mb-4">
+                      <Select
+                        value={manageStudentFilter.branchId}
+                        onValueChange={(v) => setManageStudentFilter({ ...manageStudentFilter, branchId: v })}
+                        disabled={loadingBranches}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={loadingBranches ? "Loading branches..." : "Select Branch to Filter"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches.map((b) => (
+                            <SelectItem key={b.id} value={b.id.toString()}>
+                              {b.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select
+                        value={manageStudentFilter.semester}
+                        onValueChange={(v) => setManageStudentFilter({ ...manageStudentFilter, semester: v })}
+                        disabled={!manageStudentFilter.branchId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={!manageStudentFilter.branchId ? "Select branch first" : "Select Semester to Filter"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SEMESTERS.map((s) => (
+                            <SelectItem key={s} value={s.toString()}>
+                              Semester {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {loadingStudents ? (
@@ -1009,7 +1097,7 @@ export default function AdminDashboard() {
                                 variant="ghost"
                                 onClick={() =>
                                   runDelete("deleteStudent", `/api/admin/student/${s.id}`, () =>
-                                    fetchStudents()
+                                    fetchStudents(manageStudentFilter.branchId, manageStudentFilter.semester)
                                   )
                                 }
                                 disabled={submitting.deleteStudent || submitting.editStudent}
@@ -1133,7 +1221,7 @@ export default function AdminDashboard() {
                               () => {
                                 setEditingSubject(null);
                                 setEditSubjectForm({ name: "", semester: "", branchId: "", teacherId: "" });
-                                fetchSubjects();
+                                fetchSubjects(manageSubjectFilter.branchId, manageSubjectFilter.semester);
                               }
                             );
                           }}
@@ -1150,10 +1238,40 @@ export default function AdminDashboard() {
                   </>
                 ) : (
                   <>
-                    <div className="flex gap-2 mb-4">
-                      <Button variant="outline" onClick={() => fetchSubjects()}>
-                        Refresh Subjects
-                      </Button>
+                    <div className="flex flex-col gap-4 mb-4">
+                      <Select
+                        value={manageSubjectFilter.branchId}
+                        onValueChange={(v) => setManageSubjectFilter({ ...manageSubjectFilter, branchId: v })}
+                        disabled={loadingBranches}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={loadingBranches ? "Loading branches..." : "Select Branch to Filter"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches.map((b) => (
+                            <SelectItem key={b.id} value={b.id.toString()}>
+                              {b.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select
+                        value={manageSubjectFilter.semester}
+                        onValueChange={(v) => setManageSubjectFilter({ ...manageSubjectFilter, semester: v })}
+                        disabled={!manageSubjectFilter.branchId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={!manageSubjectFilter.branchId ? "Select branch first" : "Select Semester to Filter"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SEMESTERS.map((s) => (
+                            <SelectItem key={s} value={s.toString()}>
+                              Semester {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {loadingSubjects ? (
@@ -1196,7 +1314,7 @@ export default function AdminDashboard() {
                                 variant="ghost"
                                 onClick={() =>
                                   runDelete("deleteSubject", `/api/admin/subject/${s.id}`, () =>
-                                    fetchSubjects()
+                                    fetchSubjects(manageSubjectFilter.branchId, manageSubjectFilter.semester)
                                   )
                                 }
                                 disabled={submitting.deleteSubject || submitting.editSubject}
