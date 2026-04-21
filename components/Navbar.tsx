@@ -41,7 +41,7 @@ export function Navbar() {
             className="flex items-center gap-2 text-xl font-semibold text-slate-800 dark:text-slate-100 tracking-tight"
           >
             <Sparkles className="h-5 w-5 text-indigo-600" />
-            CampussHub
+            CampusHub
           </button>
         </div>
 

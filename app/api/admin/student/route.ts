@@ -31,3 +31,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 }
+
+export async function GET(req: Request) {
+  try {
+    await requireAdmin();
+
+    const { searchParams } = new URL(req.url);
+    const branchId = searchParams.get("branchId");
+    const semester = searchParams.get("semester");
+
+    const where: any = {};
+    if (branchId) where.branchId = Number(branchId);
+    if (semester) where.semester = Number(semester);
+
+    const students = await prisma.student.findMany({
+      where,
+      select: {
+        id: true,
+        roll: true,
+        name: true,
+        semester: true,
+        branchId: true,
+      },
+      orderBy: { roll: "asc" },
+    });
+
+    return NextResponse.json({ students });
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+}

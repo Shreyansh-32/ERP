@@ -47,7 +47,7 @@ export default function LandingPage() {
           <div className="space-y-6">
             <motion.div variants={fadeUp} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm text-slate-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-100">
               <Sparkles className="h-4 w-4 text-amber-500 dark:text-amber-300" />
-              Introducing CampussHub ERP + Alumni
+              Introducing CampusHub ERP + Alumni
             </motion.div>
 
             <motion.h1
@@ -81,14 +81,14 @@ export default function LandingPage() {
               >
                 Join Alumni
               </Button>
-              <Button
+              {/* <Button
                 size="lg"
                 variant="outline"
                 onClick={() => router.push("/waste")}
                 className="border-emerald-500 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-300/60 dark:text-emerald-50 dark:hover:bg-emerald-400/10"
               >
                 Report Waste
-              </Button>
+              </Button> */}
             </motion.div>
 
             <motion.div variants={fadeUp} className="flex flex-wrap gap-6 text-sm text-slate-200/80">
@@ -129,7 +129,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-indigo-500/80 to-sky-500/80 px-5 py-4 text-white shadow-lg dark:border-white/10">
-                  <p className="text-sm">CampussHub Pulse</p>
+                  <p className="text-sm">CampusHub Pulse</p>
                   <p className="text-xl font-semibold">Unified ERP + Alumni data in one view</p>
                 </div>
               </div>
@@ -141,7 +141,7 @@ export default function LandingPage() {
       {/* FEATURES */}
       <section className="relative max-w-6xl mx-auto px-6 pb-16">
         <div className="absolute inset-x-0 -top-16 h-24 bg-gradient-to-b from-white/10 to-transparent blur-2xl pointer-events-none" />
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} variants={stagger} className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} variants={stagger} className="grid md:grid-cols-3 xl:grid-cols-3 gap-6">
           {[
             {
               title: "Student Command",
@@ -158,11 +158,11 @@ export default function LandingPage() {
               desc: "Join the alumni space, mentor juniors, and stay aligned with campus events.",
               icon: <Users className="h-5 w-5" />,
             },
-            {
-              title: "Waste Management",
-              desc: "Report, track, and resolve campus waste pickups to keep the grounds clean and green.",
-              icon: <Recycle className="h-5 w-5" />,
-            },
+            // {
+            //   title: "Waste Management",
+            //   desc: "Report, track, and resolve campus waste pickups to keep the grounds clean and green.",
+            //   icon: <Recycle className="h-5 w-5" />,
+            // },
           ].map((feature) => (
             <motion.div
               key={feature.title}
@@ -193,7 +193,7 @@ export default function LandingPage() {
               <GraduationCap className="h-4 w-4 text-amber-500 dark:text-amber-200" />
               Built for campus life
             </div>
-            <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">Why CampussHub works</h3>
+            <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">Why CampusHub works</h3>
             <ul className="space-y-3 text-slate-600 text-sm leading-relaxed dark:text-slate-200/80">
               <li>Role-specific dashboards tuned for students, teachers, and admins.</li>
               <li>Modern tech stack: Next.js, Prisma, PostgreSQL, and ShadCN UI.</li>
@@ -225,7 +225,7 @@ export default function LandingPage() {
       {/* FOOTER */}
       <footer className="relative border-t border-slate-200 bg-white/80 backdrop-blur py-6 text-center text-sm text-slate-600 dark:border-white/10 dark:bg-black/30 dark:text-slate-200/70">
         <div className="max-w-6xl mx-auto px-6">
-          © {new Date().getFullYear()} CampussHub — Government Engineering College Bilaspur
+          © {new Date().getFullYear()} CampusHub — Government Engineering College Bilaspur
         </div>
       </footer>
     </main>

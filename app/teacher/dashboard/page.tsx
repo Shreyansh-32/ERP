@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,8 +48,6 @@ type Student = {
 /* ================= COMPONENT ================= */
 
 export default function TeacherDashboard() {
-  const router = useRouter();
-
   /* ---------- Core State ---------- */
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -255,8 +252,6 @@ export default function TeacherDashboard() {
     setPresentRolls([]);
     setStudents([]);
     setAttendanceExists(false);
-
-    router.refresh();
   };
 
   /* ========================================================= */
@@ -460,6 +455,7 @@ export default function TeacherDashboard() {
   const totalStudents = students.length;
   const presentCount = presentRolls.length;
   const absentCount = Math.max(totalStudents - presentCount, 0);
+  const subjectValue = selectedSubject?.toString() ?? "";
 
   /* ========================================================= */
   /*                           UI                              */
@@ -561,7 +557,7 @@ export default function TeacherDashboard() {
                   <div className="space-y-2">
                     <Label>Subject</Label>
                     <Select
-                      value={selectedSubject?.toString()}
+                      value={subjectValue}
                       onValueChange={(v) => {
                         setSelectedSubject(Number(v));
                         setStudents([]);
@@ -704,7 +700,7 @@ export default function TeacherDashboard() {
                   <div className="space-y-2">
                     <Label>Subject</Label>
                     <Select
-                      value={selectedSubject?.toString()}
+                      value={subjectValue}
                       onValueChange={(v) => {
                         setSelectedSubject(Number(v));
                         setStudents([]);
@@ -835,7 +831,7 @@ export default function TeacherDashboard() {
                   <div className="space-y-2">
                     <Label>Subject</Label>
                     <Select
-                      value={selectedSubject?.toString()}
+                      value={subjectValue}
                       onValueChange={(v) => {
                         setSelectedSubject(Number(v));
                         setStudents([]);
@@ -965,7 +961,7 @@ export default function TeacherDashboard() {
                   <div className="space-y-2">
                     <Label>Subject</Label>
                     <Select
-                      value={selectedSubject?.toString()}
+                      value={subjectValue}
                       onValueChange={(v) => {
                         setSelectedSubject(Number(v));
                         setStudents([]);
